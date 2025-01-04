@@ -1,7 +1,6 @@
-# Повторение урока
-
 import pygame
 import sys
+from menu import MainMenu, GameOverMenu
 
 pygame.init()
 
@@ -30,6 +29,7 @@ bricks = [(offset_x + col * (brick_width + brick_gap),
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 BLUE = (0, 0 , 255)
+GREEN = (0, 255, 0)
 
 # ФПС
 clock = pygame.time.Clock()
@@ -51,22 +51,32 @@ ball_speed_y = -ball_speed_mod
 
 ball_on_paddle = True
 running = True
-while running:
+losses = 0
+
+main_menu = MainMenu(screen)
+start_game, max_losses = main_menu.run()
+
+while running and start_game:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         # Обработка запуска мяча
         if event.type == pygame.KEYDOWN and ball_on_paddle:
-            # Стартуем мяч по нажатию пробелаЖ
+            # Стартуем мяч по нажатию пробела
             if event.key == pygame.K_SPACE:
                 ball_on_paddle = False
                 ball_speed_y = -ball_speed_mod
-    # Движение платформы
+    # Нажатие клавиш клавиатуры
     keys = pygame.key.get_pressed()
     if keys[pygame.K_LEFT] and paddle_x > 0:
         paddle_x -= paddle_speed
     if keys[pygame.K_RIGHT] and paddle_x < window_size[0] - paddle_width:
         paddle_x += paddle_speed
+    if keys[pygame.K_UP]:
+        paddle_speed = min(paddle_speed + 0.5, 20)
+    if keys[pygame.K_DOWN]:
+        paddle_speed = max(paddle_speed - 0.5, 3)
+
 
     if ball_on_paddle:
         # Если мяч на платформе, он следует за ней
@@ -84,10 +94,23 @@ while running:
         if ball_y >= window_size[1]:
             # Сброс мяча
             ball_on_paddle = True
+            losses += 1
+            if losses >= max_losses:
+                start_game = False
+                game_over_menu = GameOverMenu(screen, losses)
+                result = game_over_menu.run()
+                if result == 'restart':
+                    # Перезапуск игры
+                    losses = 0
+                    start_game = True
+                    bricks = [(offset_x + col * (brick_width + brick_gap),
+                               row * (brick_height + brick_gap))
+                              for row in range(brick_rows)
+                              for col in range(brick_cols)]  # Перезаполнение кирпичей
+                else:
+                    pygame.quit()
+                    sys.exit()
 
-            # ball_x = window_size[0] // 2
-            # ball_y = paddle_y - ball_radius
-            # ball_speed_y *= -1
     # Столкновение с платформой
     if (not ball_on_paddle and
         paddle_x <= ball_x <= paddle_x + paddle_width and
@@ -101,6 +124,21 @@ while running:
         if brick_rect.collidepoint(ball_x, ball_y):
             bricks.pop(i) # удаление кирпича
             ball_speed_y *= -1
+            if not bricks:
+                start_game = False
+                game_over_menu = GameOverMenu(screen, 'win')
+                result = game_over_menu.run()
+                if result == 'restart':
+                    # Перезапуск игры
+                    losses = 0
+                    start_game = True
+                    bricks = [(offset_x + col * (brick_width + brick_gap),
+                               row * (brick_height + brick_gap))
+                              for row in range(brick_rows)
+                              for col in range(brick_cols)]  # Перезаполнение кирпичей
+                else:
+                    pygame.quit()
+                    sys.exit()
             break # Выход после удаления одного кирпича,
                   # чтобы не удалять несколько за кадр
 
@@ -114,7 +152,7 @@ while running:
     pygame.draw.circle(screen, BLUE,
                        (ball_x, ball_y), ball_radius)
     for brick in bricks:
-        pygame.draw.rect(screen, WHITE,
+        pygame.draw.rect(screen, GREEN,
                          pygame.Rect(brick[0], brick[1],
                                      brick_width, brick_height))
 
